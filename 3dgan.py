@@ -148,7 +148,7 @@ class _3DGAN(object):
             self.loss_G.backward()
             self.opt_G.step()
 
-            print('step: {:06d}, loss_D: {:.6f}, loss_G: {:.6f}'.format(self.step, self.loss_D.data.cpu().numpy(), self.loss_G.data.cpu().numpy()))
+            # print('step: {:06d}, loss_D: {:.6f}, loss_G: {:.6f}'.format(self.step, self.loss_D.data.cpu().numpy(), self.loss_G.data.cpu().numpy()))
 
             if self.step % 100 == 0:
                 self.save_log()
@@ -163,7 +163,7 @@ class _3DGAN(object):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('-a', '--attribute', type=str, help='Specify category for training.')
+    parser.add_argument('-a', '--attribute', type=str, required=True, help='Specify category for training.')
     parser.add_argument('-g', '--gpu', default=[], nargs='+', type=int, help='Specify GPU ids.')
     parser.add_argument('-r', '--restore', default=None, action='store', type=int, help='Specify checkpoint id to restore.')
     parser.add_argument('-m', '--mode', default='train', type=str, choices=['train', 'test'])

@@ -17,8 +17,7 @@ from torchvision import transforms, utils
 class Config:
     @property
     def data_dir(self):
-        # data_dir = '/home/xiaoth/datasets/ModelNet/volumetric_data'
-        data_dir = '/gpfs/share/home/1501210096/datasets/ModelNet/volumetric_data'
+        data_dir = '3DShapeNets/volumetric_data'
         if not os.path.exists(data_dir):
             os.makedirs(data_dir)
         return data_dir
@@ -51,7 +50,11 @@ class Config:
             os.makedirs(img_dir)
         return img_dir
 
-    nchw = [32,64,64,64]
+    @classmethod
+    def set_batchsize(cls, batch_size):
+        cls.nchw[0] = batch_size
+
+    nchw = [32,64,64,64]  # batch_size, channel, height, width
 
     G_lr = 2.5e-3
 
