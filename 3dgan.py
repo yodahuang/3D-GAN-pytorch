@@ -11,6 +11,7 @@ import numpy as np
 import scipy.io as sio
 from tensorboardX import SummaryWriter
 from itertools import chain
+from datetime import datetime
 
 
 class _3DGAN(object):
@@ -106,7 +107,8 @@ class _3DGAN(object):
         torch.save({key: val.cpu() for key, val in self.D.state_dict().items()}, os.path.join(self.config.model_dir, 'D_iter_{:06d}.pth'.format(self.step)))
 
     def train(self):
-        self.writer = SummaryWriter(self.config.log_dir)
+        current_time = datetime.now().strftime('%b%d_%H-%M-%S')
+        self.writer = SummaryWriter(os.path.join(self.config.log_dir, current_time))
         self.opt_G = torch.optim.Adam(self.G.parameters(), lr=self.config.G_lr, betas=(0.5, 0.999))
         self.opt_D = torch.optim.Adam(self.D.parameters(), lr=self.config.D_lr, betas=(0.5, 0.999))
         self.G_lr_scheduler = torch.optim.lr_scheduler.StepLR(self.opt_G, step_size=self.config.step_size, gamma=self.config.gamma)
@@ -137,9 +139,14 @@ class _3DGAN(object):
             }
             self.loss_D = sum(self.D_loss.values())
 
-            self.opt_D.zero_grad()
-            self.loss_D.backward()
-            self.opt_D.step()
+            D_real_acu = torch.ge(self.D_real.squeeze(), 0.5).float()
+            D_fake_acu = torch.le(self.D_fake.squeeze(), 0.5).float()
+            D_total_acu = torch.mean(torch.cat((D_real_acu, D_fake_acu),0))
+
+            if D_total_acu <= 0.8:
+                self.opt_D.zero_grad()
+                self.loss_D.backward()
+                self.opt_D.step()
 
             # update G
             self.D_fake = self.D(self.fake_X)

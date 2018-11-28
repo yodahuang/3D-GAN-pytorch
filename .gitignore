@@ -6,3 +6,6 @@ __pycache__/
 
 # Logs
 train_log/
+
+# Personal Configs
+.vscode/

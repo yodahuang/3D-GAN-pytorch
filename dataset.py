@@ -54,7 +54,7 @@ class Config:
     def set_batchsize(cls, batch_size):
         cls.nchw[0] = batch_size
 
-    nchw = [32,64,64,64]  # batch_size, channel, height, width
+    nchw = [64,64,64,64]  # batch_size, channel, height, width
 
     G_lr = 2.5e-3
 
