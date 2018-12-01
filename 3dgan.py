@@ -128,11 +128,11 @@ class _3DGAN(object):
                     self.real_X = self.real_X.cuda()
                     self.noise  = self.noise.cuda()
 
-            self.fake_X = self.G(self.noise)
+            self.fake_X, _, _ = self.G(self.noise)
 
             # update D
-            self.D_real = self.D(self.real_X)
-            self.D_fake = self.D(self.fake_X.detach())
+            self.D_real, _, _ = self.D(self.real_X)
+            self.D_fake, _, _ = self.D(self.fake_X.detach())
             self.D_loss = {
                 'adv_real': self.adv_criterion(self.D_real, torch.ones_like(self.D_real)),
                 'adv_fake': self.adv_criterion(self.D_fake, torch.zeros_like(self.D_fake)),
@@ -141,7 +141,7 @@ class _3DGAN(object):
 
             D_real_acu = torch.ge(self.D_real.squeeze(), 0.5).float()
             D_fake_acu = torch.le(self.D_fake.squeeze(), 0.5).float()
-            D_total_acu = torch.mean(torch.cat((D_real_acu, D_fake_acu),0))
+            D_total_acu = torch.mean(torch.cat((D_real_acu, D_fake_acu), 0))
 
             if D_total_acu <= 0.8:
                 self.opt_D.zero_grad()
@@ -149,7 +149,7 @@ class _3DGAN(object):
                 self.opt_D.step()
 
             # update G
-            self.D_fake = self.D(self.fake_X)
+            self.D_fake, _, _ = self.D(self.fake_X)
             self.G_loss = {
                 'adv_fake': self.adv_criterion(self.D_fake, torch.ones_like(self.D_fake))
             }
