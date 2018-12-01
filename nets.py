@@ -41,7 +41,9 @@ class Self_Attn(nn.Module):
         proj_key = self.key_conv(x).view(
             m_batchsize, -1, depth*width*height)  # B X C x (*W*H)
         energy = torch.bmm(proj_query, proj_key)  # transpose check
+        del proj_query, proj_key  # Save some CUDA memory
         attention = self.softmax(energy)  # BX (N) X (N)
+        del energy  # save some CUDA memory
         proj_value = self.value_conv(x).view(
             m_batchsize, -1, depth*width*height)  # B X C X N
 
