@@ -151,7 +151,7 @@ class _3DGAN(object):
             # update G
             self.D_fake = self.D(self.fake_X)
             self.G_loss = {
-                'adv_fake': self.adv_criterion(self.D_fake, torch.ones_like(self.D_fake))
+                'adv_fake': -self.adv_criterion(torch.ones_like(self.D_fake) - self.D_fake, torch.ones_like(self.D_fake))
             }
             self.loss_G = sum(self.G_loss.values())
             self.opt_G.zero_grad()
