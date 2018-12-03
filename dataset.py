@@ -54,6 +54,10 @@ class Config:
     def set_batchsize(cls, batch_size):
         cls.nchw[0] = batch_size
 
+    @classmethod
+    def set_n_iter(cls, max_iter):
+        cls.max_iter = max_iter
+
     nchw = [64,64,64,64]  # batch_size, channel, height, width
 
     G_lr = 2.5e-3
