@@ -12,19 +12,21 @@ from torch.autograd import Variable
 class Self_Attn(nn.Module):
     """ Self attention Layer"""
 
-    def __init__(self, in_dim, activation, stride=2):
+    def __init__(self, in_dim, activation):
         super(Self_Attn, self).__init__()
         self.chanel_in = in_dim
         self.activation = activation
-        self.stride = stride
 
         self.query_conv = nn.Conv3d(
-            in_channels=in_dim, out_channels=in_dim//8, kernel_size=1, stride=stride)
+            in_channels=in_dim, out_channels=in_dim//8, kernel_size=1)
         self.key_conv = nn.Conv3d(
-            in_channels=in_dim, out_channels=in_dim//8, kernel_size=1, stride=stride)
+            in_channels=in_dim, out_channels=in_dim//8, kernel_size=1)
         self.value_conv = nn.Conv3d(
-            in_channels=in_dim, out_channels=in_dim, kernel_size=1, stride=stride)
-        self.recover_conv = nn.ConvTranspose3d(in_dim, in_dim, kernel_size=stride, stride=stride)
+            in_channels=in_dim, out_channels=in_dim, kernel_size=1)
+        self.pool = nn.MaxPool3d(kernel_size=2)
+        self.pool_with_indices = nn.MaxPool3d(kernel_size=2, return_indices=True)
+        self.unpool = nn.MaxUnpool3d(kernel_size=2)
+
         self.gamma = nn.Parameter(torch.zeros(1))
 
         self.softmax = nn.Softmax(dim=-1)
@@ -42,16 +44,17 @@ class Self_Attn(nn.Module):
             m_batchsize, C, depth, width, height = x.size()
             return x.view(m_batchsize, C, depth*width*height)
 
-        m_batchsize, C, depth, width, height = x.size()
-        proj_query = flatten(self.query_conv(x)).permute(0, 2, 1)  # B X N X C
-        proj_key = flatten(self.key_conv(x))  # B X C X N
+        proj_query = flatten(self.pool(self.query_conv(x))).permute(0, 2, 1)  # B X N X C
+        proj_key = flatten(self.pool(self.key_conv(x)))  # B X C X N
         energy = torch.bmm(proj_query, proj_key)  # transpose check
         attention = self.softmax(energy)  # BX (N) X (N)
-        proj_value = flatten(self.value_conv(x))  # B X C X N
+        proj_value, value_indices = self.pool_with_indices(self.value_conv(x))
+
+        m_batchsize, C, depth, width, height = proj_value.size()
+        proj_value = flatten(proj_value)  # B X C X N
 
         out = torch.bmm(proj_value, attention.permute(0, 2, 1))
-        out = out.view(m_batchsize, C, depth//self.stride, width//self.stride, height//self.stride)
-        out = self.recover_conv(out)
+        out = self.unpool(out.view(m_batchsize, C, depth, width, height), value_indices)
         out = self.gamma*out + x
         return out, attention
 
@@ -83,8 +86,8 @@ class Generator(nn.Module):
             nn.ConvTranspose3d(64, 1, 4, 2, 1),
             nn.Sigmoid()
         )
-        self.attn1 = Self_Attn(128, 'relu', 2)
-        self.attn2 = Self_Attn(64,  'relu', 2)
+        self.attn1 = Self_Attn(128, 'relu')
+        self.attn2 = Self_Attn(64,  'relu')
 
     def forward(self, x):
         # x's size: batch_size * hidden_size
@@ -126,8 +129,8 @@ class Discriminator(nn.Module):
             nn.Conv3d(512, 1, 4, 2, 0),
             nn.Sigmoid()
         )
-        self.attn1 = Self_Attn(256, 'relu', 2)
-        self.attn2 = Self_Attn(512, 'relu', 2)
+        self.attn1 = Self_Attn(256, 'relu')
+        self.attn2 = Self_Attn(512, 'relu')
 
     def forward(self, x):
         # x's size: batch_size * 1 * 64 * 64 * 64
