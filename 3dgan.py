@@ -25,6 +25,8 @@ class _3DGAN(object):
         self.config = config
         if args.batch_size is not None:
             self.config.set_batchsize(args.batch_size)
+        if args.n_iter is not None:
+            self.config.set_n_iter(args.n_iter)
         self.dataset = ShapeNet(self.attribute)
         self.G = Generator()
         self.D = Discriminator()
@@ -172,6 +174,7 @@ if __name__ == "__main__":
     parser.add_argument('-r', '--restore', default=None, action='store', type=int, help='Specify checkpoint id to restore.')
     parser.add_argument('-m', '--mode', default='train', type=str, choices=['train', 'test'])
     parser.add_argument('-b', '--batch_size', type=int)
+    parser.add_argument('-n', '--n_iter', type=int, help='Max number of iterations')
     
     args = parser.parse_args()
     print(args)
