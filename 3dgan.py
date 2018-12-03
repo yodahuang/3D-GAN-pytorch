@@ -81,16 +81,16 @@ class _3DGAN(object):
 
     def save_log(self):
         scalar_info = {
-            'loss_D': self.loss_D,
-            'loss_G': self.loss_G,
+            'err_D': self.err_D,
+            'err_G': self.err_G,
             'G_lr'  : self.G_lr_scheduler.get_lr()[0],
             'D_lr'  : self.D_lr_scheduler.get_lr()[0],
         }
-        for key, value in self.G_loss.items():
-            scalar_info['G_loss/' + key] = value
-
-        for key, value in self.D_loss.items():
-            scalar_info['D_loss/' + key] = value
+        # for key, value in self.err_G.items():
+        #     scalar_info['err_G/' + key] = value
+        #
+        # for key, value in self.err_D.items():
+        #     scalar_info['err_D/' + key] = value
 
         for tag, value in scalar_info.items():
             self.writer.add_scalar(tag, value, self.step)
@@ -115,11 +115,19 @@ class _3DGAN(object):
         self.D_lr_scheduler = torch.optim.lr_scheduler.StepLR(self.opt_D, step_size=self.config.step_size, gamma=self.config.gamma)
 
         print('Start training')
+        Diters = 5
+        clamp_lower = -0.01
+        clamp_upper = 0.01
+
         # start training
         for step in range(self.start_step, 1 + self.config.max_iter):
             self.step = step
             self.G_lr_scheduler.step()
             self.D_lr_scheduler.step()
+
+            # clamp parameters to a cube
+            for p in self.D.parameters():
+                p.data.clamp_(clamp_lower, clamp_upper)
 
             self.real_X = next(self.dataset.gen(True))
             self.noise = torch.randn(self.config.nchw[0], 200)
@@ -133,30 +141,20 @@ class _3DGAN(object):
             # update D
             self.D_real = self.D(self.real_X)
             self.D_fake = self.D(self.fake_X.detach())
-            self.D_loss = {
-                'adv_real': self.adv_criterion(self.D_real, torch.ones_like(self.D_real)),
-                'adv_fake': self.adv_criterion(self.D_fake, torch.zeros_like(self.D_fake)),
-            }
-            self.loss_D = sum(self.D_loss.values())
+            self.err_D = torch.mean(self.D_real.data) - torch.mean(self.D_fake.data)
 
-            D_real_acu = torch.ge(self.D_real.squeeze(), 0.5).float()
-            D_fake_acu = torch.le(self.D_fake.squeeze(), 0.5).float()
-            D_total_acu = torch.mean(torch.cat((D_real_acu, D_fake_acu),0))
+            self.opt_D.zero_grad()
+            self.D_real.backward(torch.ones_like(self.D_real))
+            self.D_fake.backward(torch.ones_like(self.D_fake) * -1)
+            self.opt_D.step()
 
-            if D_total_acu <= 0.8:
-                self.opt_D.zero_grad()
-                self.loss_D.backward()
-                self.opt_D.step()
-
-            # update G
-            self.D_fake = self.D(self.fake_X)
-            self.G_loss = {
-                'adv_fake': self.adv_criterion(self.D_fake, torch.ones_like(self.D_fake))
-            }
-            self.loss_G = sum(self.G_loss.values())
-            self.opt_G.zero_grad()
-            self.loss_G.backward()
-            self.opt_G.step()
+            if step % Diters == 0:
+                # update G
+                self.D_fake = self.D(self.fake_X)
+                self.err_G = torch.mean(self.D_fake.data)
+                self.opt_G.zero_grad()
+                self.D_fake.backward(torch.ones_like(self.D_fake))
+                self.opt_G.step()
 
             # print('step: {:06d}, loss_D: {:.6f}, loss_G: {:.6f}'.format(self.step, self.loss_D.data.cpu().numpy(), self.loss_G.data.cpu().numpy()))
 
