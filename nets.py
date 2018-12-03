@@ -12,17 +12,19 @@ from torch.autograd import Variable
 class Self_Attn(nn.Module):
     """ Self attention Layer"""
 
-    def __init__(self, in_dim, activation):
+    def __init__(self, in_dim, activation, stride=2):
         super(Self_Attn, self).__init__()
         self.chanel_in = in_dim
         self.activation = activation
+        self.stride = stride
 
         self.query_conv = nn.Conv3d(
-            in_channels=in_dim, out_channels=in_dim//8, kernel_size=1)
+            in_channels=in_dim, out_channels=in_dim//8, kernel_size=1, stride=stride)
         self.key_conv = nn.Conv3d(
-            in_channels=in_dim, out_channels=in_dim//8, kernel_size=1)
+            in_channels=in_dim, out_channels=in_dim//8, kernel_size=1, stride=stride)
         self.value_conv = nn.Conv3d(
-            in_channels=in_dim, out_channels=in_dim, kernel_size=1)
+            in_channels=in_dim, out_channels=in_dim, kernel_size=1, stride=stride)
+        self.recover_conv = nn.ConvTranspose3d(in_dim, in_dim, kernel_size=stride, stride=stride)
         self.gamma = nn.Parameter(torch.zeros(1))
 
         self.softmax = nn.Softmax(dim=-1)
@@ -35,21 +37,21 @@ class Self_Attn(nn.Module):
                 out : self attention value + input feature 
                 attention: B X N X N (N is Depth*Width*Height)
         """
+        def flatten(x):
+            """Flatten a 5d tensor from conv3d to 3d"""
+            m_batchsize, C, depth, width, height = x.size()
+            return x.view(m_batchsize, C, depth*width*height)
+
         m_batchsize, C, depth, width, height = x.size()
-        proj_query = self.query_conv(x).view(
-            m_batchsize, -1, depth*width*height).permute(0, 2, 1)  # B X CX(N)
-        proj_key = self.key_conv(x).view(
-            m_batchsize, -1, depth*width*height)  # B X C x (*W*H)
+        proj_query = flatten(self.query_conv(x)).permute(0, 2, 1)  # B X N X C
+        proj_key = flatten(self.key_conv(x))  # B X C X N
         energy = torch.bmm(proj_query, proj_key)  # transpose check
-        del proj_query, proj_key  # Save some CUDA memory
         attention = self.softmax(energy)  # BX (N) X (N)
-        del energy  # save some CUDA memory
-        proj_value = self.value_conv(x).view(
-            m_batchsize, -1, depth*width*height)  # B X C X N
+        proj_value = flatten(self.value_conv(x))  # B X C X N
 
         out = torch.bmm(proj_value, attention.permute(0, 2, 1))
-        out = out.view(m_batchsize, C, depth, width, height)
-
+        out = out.view(m_batchsize, C, depth//self.stride, width//self.stride, height//self.stride)
+        out = self.recover_conv(out)
         out = self.gamma*out + x
         return out, attention
 
@@ -81,8 +83,8 @@ class Generator(nn.Module):
             nn.ConvTranspose3d(64, 1, 4, 2, 1),
             nn.Sigmoid()
         )
-        self.attn1 = Self_Attn(128, 'relu')
-        self.attn2 = Self_Attn(64,  'relu')
+        self.attn1 = Self_Attn(128, 'relu', 2)
+        self.attn2 = Self_Attn(64,  'relu', 2)
 
     def forward(self, x):
         # x's size: batch_size * hidden_size
@@ -124,8 +126,8 @@ class Discriminator(nn.Module):
             nn.Conv3d(512, 1, 4, 2, 0),
             nn.Sigmoid()
         )
-        self.attn1 = Self_Attn(256, 'relu')
-        self.attn2 = Self_Attn(512, 'relu')
+        self.attn1 = Self_Attn(256, 'relu', 2)
+        self.attn2 = Self_Attn(512, 'relu', 2)
 
     def forward(self, x):
         # x's size: batch_size * 1 * 64 * 64 * 64
