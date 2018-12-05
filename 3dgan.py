@@ -167,7 +167,7 @@ class _3DGAN(object):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('-a', '--attribute', type=str, required=True, help='Specify category for training.')
+    parser.add_argument('-a', '--attribute', nargs='+', required=True, help='Specify categories for training.')
     parser.add_argument('-g', '--gpu', default=[], nargs='+', type=int, help='Specify GPU ids.')
     parser.add_argument('-r', '--restore', default=None, action='store', type=int, help='Specify checkpoint id to restore.')
     parser.add_argument('-m', '--mode', default='train', type=str, choices=['train', 'test'])
