@@ -77,40 +77,43 @@ class Single(Dataset):
     def __init__(self, filenames, config):
         self.filenames = filenames
         self.config = config
+        self.dataloader = DataLoader(self, batch_size=self.config.nchw[0], shuffle=self.config.shuffle, num_workers=self.config.num_workers, drop_last=True)
 
     def __len__(self):
         return len(self.filenames)
 
     def __getitem__(self, idx):
         voxel = sio.loadmat(self.filenames[idx])['instance']
-        voxel = np.pad(voxel, (1,1), 'constant', constant_values=(0,0))
+        voxel = np.pad(voxel, (1, 1), 'constant', constant_values=(0, 0))
         if self.config.nchw[-1] != 32:
             ratio = self.config.nchw[-1] / 32.
             voxel = nd.zoom(voxel, (ratio, ratio, ratio), mode='constant', order=0)
         return np.expand_dims(voxel.astype(np.float32), 0)
 
     def gen(self):
-        dataloader = DataLoader(self, batch_size=self.config.nchw[0], shuffle=self.config.shuffle, num_workers=self.config.num_workers, drop_last=True)
         while True:
-            for data in dataloader:
+            for data in self.dataloader:
                 yield data
 
 
 class ShapeNet(object):
-    def __init__(self, category, config=config):
-        self.category = category
+    def __init__(self, categories, config=config, infinity=True):
+        self.categories = categories
         self.config = config
 
         self.dict = {True: None, False: None}
         for is_train in [True, False]:
-            prefix = os.path.join(self.config.data_dir, category, '30')
-            data_dir = prefix + '/train' if is_train else prefix + '/test'
-            filenames = [os.path.join(data_dir, name) for name in os.listdir(data_dir) if name.endswith('.mat')]
-            self.dict[is_train] = Single(filenames, self.config).gen()
+            filenames = []
+            for category in categories:
+                prefix = os.path.join(self.config.data_dir, category, '30')
+                data_dir = prefix + '/train' if is_train else prefix + '/test'
+                filenames.extend([os.path.join(data_dir, name) for name in os.listdir(data_dir) if name.endswith('.mat')])
+            self.dict[is_train] = Single(filenames, self.config).gen() if infinity else Single(filenames, self.config).dataloader
 
     def gen(self, is_train):
         data_gen = self.dict[is_train]
         return data_gen
+
 
 def test():
     dataset = ShapeNet('chair')
