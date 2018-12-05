@@ -4,6 +4,7 @@
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from torch.autograd import Variable
 
 class Generator(nn.Module):
@@ -39,31 +40,53 @@ class Generator(nn.Module):
 class Discriminator(nn.Module):
     def __init__(self):
         super(Discriminator, self).__init__()
-        self.main = nn.Sequential(
+        self.layer_1 = nn.Sequential(
             nn.Conv3d(1, 64, 4, 2, 1),
             nn.BatchNorm3d(64),
-            nn.LeakyReLU(0.2),
-
+            nn.LeakyReLU(0.2)
+        )
+        self.layer_2 = nn.Sequential(
             nn.Conv3d(64, 128, 4, 2, 1),
             nn.BatchNorm3d(128),
-            nn.LeakyReLU(0.2),
-
+            nn.LeakyReLU(0.2)
+        )
+        self.layer_3 = nn.Sequential(
             nn.Conv3d(128, 256, 4, 2, 1),
             nn.BatchNorm3d(256),
-            nn.LeakyReLU(0.2),
-
+            nn.LeakyReLU(0.2)
+        )
+        self.layer_4 = nn.Sequential(
             nn.Conv3d(256, 512, 4, 2, 1),
             nn.BatchNorm3d(512),
-            nn.LeakyReLU(0.2),
-
+            nn.LeakyReLU(0.2)
+        )
+        self.layer_5 = nn.Sequential(
             nn.Conv3d(512, 1, 4, 2, 0),
             nn.Sigmoid()
         )
 
     def forward(self, x):
         # x's size: batch_size * 1 * 64 * 64 * 64
-        x = self.main(x)
+        x = self.layer_1(x)
+        x = self.layer_2(x)
+        x = self.layer_3(x)
+        x = self.layer_4(x)
+        x = self.layer_5(x)
         return x.view(-1, x.size(1))
+
+    def forward_eval(self, x):
+        """Forward method for classification, specifically"""
+        batch_size = x.size(0)
+        x = self.layer_1(x)
+        output_2 = self.layer_2(x)
+        output_3 = self.layer_3(output_2)
+        output_4 = self.layer_4(output_3)
+
+        output_2 = F.max_pool3d(output_2, 8)  # batch x 128 x 2 x 2 x 2
+        output_3 = F.max_pool3d(output_3, 4)  # batch x 256 x 2 x 2 x 2
+        output_4 = F.max_pool3d(output_4, 2)  # batch x 256 x 2 x 2 x 2
+        return torch.cat((output_2.view(batch_size, -1), output_3.view(batch_size, -1), output_4.view(batch_size, -1)), dim=1)  # batch_size x 7168
+
 
 if __name__ == "__main__":
     G = Generator().cuda(0)

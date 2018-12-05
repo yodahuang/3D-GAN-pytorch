@@ -26,6 +26,8 @@ class _3DGAN(object):
         self.config = config
         if args.batch_size is not None:
             self.config.set_batchsize(args.batch_size)
+        if args.n_iter is not None:
+            self.config.set_n_iter(args.n_iter)
         self.dataset = ShapeNet(self.attribute)
         self.G = Generator()
         self.D = Discriminator()
@@ -172,11 +174,12 @@ class _3DGAN(object):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('-a', '--attribute', type=str, required=True, help='Specify category for training.')
+    parser.add_argument('-a', '--attribute', nargs='+', required=True, help='Specify categories for training.')
     parser.add_argument('-g', '--gpu', default=[], nargs='+', type=int, help='Specify GPU ids.')
     parser.add_argument('-r', '--restore', default=None, action='store', type=int, help='Specify checkpoint id to restore.')
     parser.add_argument('-m', '--mode', default='train', type=str, choices=['train', 'test'])
     parser.add_argument('-b', '--batch_size', type=int)
+    parser.add_argument('-n', '--n_iter', type=int, help='Max number of iterations')
     
     args = parser.parse_args()
     print(args)
