@@ -7,13 +7,15 @@ from tqdm import tqdm
 from dataset import ShapeNet, config
 from nets import Discriminator
 
+DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 @click.command()
 @click.option('-m', '--model_path', required=True, help='Discriminator model path')
 @click.option('-b', '--batch_size', type=int, default=64)
 def evaluate_single(model_path, batch_size):
-    discriminator = Discriminator()
-    # discriminator.load_state_dict(torch.load(model_path))
+    discriminator = Discriminator().to(DEVICE)
+    discriminator.eval()
+    discriminator.load_state_dict(torch.load(model_path))
 
     # The idea of config is just pure stupid
     config.set_batchsize(batch_size)
@@ -26,6 +28,7 @@ def evaluate_single(model_path, batch_size):
     labels = []
     for dataset, label in zip(category_datasets, category_labels):
         for real_X in tqdm(dataset.gen(is_train=True)):
+            real_X = real_X.to(DEVICE)
             representations.append(discriminator.forward_eval(real_X).detach().cpu().numpy())
             labels.append(np.ones(real_X.shape[0]) * label)
     representations = np.vstack(representations)
@@ -39,6 +42,7 @@ def evaluate_single(model_path, batch_size):
     test_labels = []
     for dataset, label in tqdm(zip(category_datasets, category_labels)):
         for real_X in tqdm(dataset.gen(is_train=False)):
+            real_X = real_X.to(DEVICE)
             test_representations.append(discriminator.forward_eval(real_X).detach().cpu().numpy())
             test_labels.append(np.ones(real_X.shape[0]) * label)
     predictions = clf.predict(test_representations)
