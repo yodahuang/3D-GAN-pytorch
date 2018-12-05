@@ -1,5 +1,6 @@
 import click
 import numpy as np
+import torch
 from sklearn import svm
 from sklearn.metrics import accuracy_score
 from tqdm import tqdm
@@ -8,6 +9,20 @@ from dataset import ShapeNet, config
 from nets import Discriminator
 
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
+
+def get_category_data(category_datasets, category_labels, discriminator, is_train):
+    representations = []
+    labels = []
+    for dataset, label in zip(category_datasets, category_labels):
+        for real_X in tqdm(dataset.gen(is_train)):
+            real_X = real_X.to(DEVICE)
+            representations.append(discriminator.forward_eval(real_X).detach().cpu().numpy())
+            labels.append(np.ones(real_X.shape[0]) * label)
+    representations = np.vstack(representations)
+    labels = np.hstack(labels)
+    return representations, labels
+
 
 @click.command()
 @click.option('-m', '--model_path', required=True, help='Discriminator model path')
@@ -24,27 +39,14 @@ def evaluate_single(model_path, batch_size):
     category_labels = range(len(all_category_names))
     category_datasets = [ShapeNet([c], config, infinity=False) for c in all_category_names]
 
-    representations = []
-    labels = []
-    for dataset, label in zip(category_datasets, category_labels):
-        for real_X in tqdm(dataset.gen(is_train=True)):
-            real_X = real_X.to(DEVICE)
-            representations.append(discriminator.forward_eval(real_X).detach().cpu().numpy())
-            labels.append(np.ones(real_X.shape[0]) * label)
-    representations = np.vstack(representations)
-    labels = np.vstack(labels)
+    training_representations, training_labels = get_category_data(category_datasets, category_labels, discriminator, True)
 
     # Classifier
     clf = svm.LinearSVC(penalty='l2', C=0.01, class_weight='balanced')
-    clf.fit(representations, labels)
+    clf.fit(training_representations, training_labels)
 
-    test_representations = []
-    test_labels = []
-    for dataset, label in tqdm(zip(category_datasets, category_labels)):
-        for real_X in tqdm(dataset.gen(is_train=False)):
-            real_X = real_X.to(DEVICE)
-            test_representations.append(discriminator.forward_eval(real_X).detach().cpu().numpy())
-            test_labels.append(np.ones(real_X.shape[0]) * label)
+    test_representations, test_labels = get_category_data(category_datasets, category_labels, discriminator, False)
+
     predictions = clf.predict(test_representations)
     print(accuracy_score(test_labels, predictions))
 
