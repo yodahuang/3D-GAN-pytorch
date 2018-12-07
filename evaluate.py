@@ -35,7 +35,7 @@ def evaluate_single(model_path, batch_size):
     # The idea of config is just pure stupid
     config.set_batchsize(batch_size)
 
-    all_category_names = ['chair', 'sofa', 'table', 'airplane', 'car']
+    all_category_names = ['table', 'plant', 'vase', 'curtain', 'dresser', 'laptop', 'person', 'radio', 'bottle', 'bathtub', 'lamp', 'keyboard', 'sink']
     category_labels = range(len(all_category_names))
     category_datasets = [ShapeNet([c], config, infinity=False) for c in all_category_names]
 
