@@ -137,8 +137,8 @@ class _3DGAN(object):
             self.D_real = self.D(self.real_X)
             self.D_fake = self.D(self.fake_X.detach())
             self.D_loss = {
-                'adv_real': self.adv_criterion(self.D_real, torch.ones_like(self.D_real) + torch.rand_like(self.D_real) * (2 * smooth_factor) - smooth_factor),
-                'adv_fake': self.adv_criterion(self.D_fake, torch.zeros_like(self.D_fake) + torch.rand_like(self.D_fake) * smooth_factor),
+                'adv_real': self.adv_criterion(self.D_real, torch.ones_like(self.D_real) - smooth_factor),
+                'adv_fake': self.adv_criterion(self.D_fake, torch.zeros_like(self.D_fake)),
             }
             self.loss_D = sum(self.D_loss.values())
 
@@ -154,7 +154,7 @@ class _3DGAN(object):
             # update G
             self.D_fake = self.D(self.fake_X)
             self.G_loss = {
-                'adv_fake': self.adv_criterion(self.D_fake, torch.ones_like(self.D_fake) + torch.rand_like(self.D_fake) * (2 * smooth_factor) - smooth_factor)
+                'adv_fake': self.adv_criterion(self.D_fake, torch.ones_like(self.D_fake))
             }
             self.loss_G = sum(self.G_loss.values())
             self.opt_G.zero_grad()
